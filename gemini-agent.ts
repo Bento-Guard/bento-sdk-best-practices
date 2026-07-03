@@ -10,14 +10,14 @@ type GeminiContent = {
 
 export type AgentPlan =
   | {
-      type: "ACTION";
-      intent: string;
-      message: string;
-    }
+    type: "ACTION";
+    intent: string;
+    message: string;
+  }
   | {
-      type: "CHAT";
-      message: string;
-    };
+    type: "CHAT";
+    message: string;
+  };
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -53,7 +53,7 @@ export class GeminiAgent {
 
   constructor(
     apiKey = process.env.GEMINI_API_KEY || "",
-    model = process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
   ) {
     if (!apiKey) {
       throw new Error("Missing GEMINI_API_KEY in environment");
@@ -94,7 +94,7 @@ export class GeminiAgent {
             },
           },
           {
-            headers: { 
+            headers: {
               "Content-Type": "application/json",
               "x-goog-api-key": this.apiKey
             },

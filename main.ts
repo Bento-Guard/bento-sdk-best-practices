@@ -73,6 +73,7 @@ async function handleAnalysisResult(analysis: any) {
       return;
     }
 
+    label("Action ID", analysis.actionId, color.cyan);
     await resolveEscalation(analysis);
     return;
   }
@@ -95,8 +96,8 @@ function printReasoning(
 async function resolveEscalation(analysis: any) {
   const actionId = analysis.actionId;
   console.log("");
-  console.log(badge(" WAITING FOR APPROVAL ", color.black, color.bgYellow));
-  console.log("");
+  label("Review mode", "Dashboard polling", color.yellow);
+  label("Action ID", actionId, color.cyan);
   
   if (analysis.reviewUrl) console.log(`👀 Review URL:  ${paint(analysis.reviewUrl, color.cyan)}`);
   if (analysis.approveUrl) console.log(`✅ Approve URL: ${paint(analysis.approveUrl, color.green)}`);
