@@ -13,6 +13,11 @@ export type AgentPlan =
     type: "ACTION";
     intent: string;
     message: string;
+    actionParams?: {
+      targetAddress?: string;
+      amount?: number;
+      token?: string;
+    };
   }
   | {
     type: "CHAT";
@@ -32,7 +37,12 @@ Schema:
 {
   "type": "ACTION" | "CHAT",
   "intent": "required only for ACTION",
-  "message": "short terminal-friendly response"
+  "message": "short terminal-friendly response",
+  "actionParams": {
+    "targetAddress": "extracted address if present",
+    "amount": "extracted number if present",
+    "token": "extracted token symbol if present"
+  }
 }
 
 Use ACTION only when the user asks to perform a blockchain, wallet, token,
@@ -169,6 +179,7 @@ function parsePlan(text: string): AgentPlan {
         typeof parsed.message === "string" && parsed.message.trim()
           ? parsed.message.trim()
           : "Prepared an action intent for security review.",
+      actionParams: parsed.actionParams,
     };
   }
 

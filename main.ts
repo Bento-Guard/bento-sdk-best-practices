@@ -1,5 +1,6 @@
 import * as dotenv from "dotenv";
 import * as readline from "readline";
+import { SystemProgram, Transaction, PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { GeminiAgent, AgentPlan } from "./gemini-agent";
 import { SCENARIOS } from "./scenarios";
 import {
@@ -30,15 +31,39 @@ const rl = readline.createInterface({
 const askQuestion = (query: string) =>
   new Promise<string>((resolve) => rl.question(query, resolve));
 
-async function protectIntent(intent: string) {
+async function protectIntent(intent: string, actionParams?: any) {
   console.log(`\n${paint("Input intent:", color.yellow)} ${intent}`);
 
   console.log("");
   console.log(badge(" PROTECTING VIA BENTO GUARD ", color.white, color.bgBlue));
 
+  let transactionBase64: string | undefined = undefined;
+  try {
+    if (actionParams?.targetAddress && actionParams?.amount) {
+      const targetAddress = actionParams.targetAddress;
+      const amountSol = typeof actionParams.amount === 'string' ? parseFloat(actionParams.amount) : actionParams.amount;
+      const messageV0 = new TransactionMessage({
+        payerKey: new PublicKey("11111111111111111111111111111111"),
+        recentBlockhash: "11111111111111111111111111111111",
+        instructions: [
+          SystemProgram.transfer({
+            fromPubkey: new PublicKey("11111111111111111111111111111111"),
+            toPubkey: new PublicKey(targetAddress),
+            lamports: amountSol * 1e9,
+          })
+        ]
+      }).compileToV0Message();
+      const tx = new VersionedTransaction(messageV0);
+      transactionBase64 = Buffer.from(tx.serialize()).toString("base64");
+    }
+  } catch (e) {
+    // Ignore mock error
+  }
+
   try {
     const analysis = await secureExecute({
       instruction: intent,
+      transactionBase64,
     });
     await handleAnalysisResult(analysis);
   } catch (error: any) {
@@ -73,7 +98,6 @@ async function handleAnalysisResult(analysis: any) {
       return;
     }
 
-    label("Action ID", analysis.actionId, color.cyan);
     await resolveEscalation(analysis);
     return;
   }
@@ -96,8 +120,8 @@ function printReasoning(
 async function resolveEscalation(analysis: any) {
   const actionId = analysis.actionId;
   console.log("");
-  label("Review mode", "Dashboard polling", color.yellow);
-  label("Action ID", actionId, color.cyan);
+  console.log(badge(" WAITING FOR APPROVAL ", color.black, color.bgYellow));
+  console.log("");
   
   if (analysis.reviewUrl) console.log(`👀 Review URL:  ${paint(analysis.reviewUrl, color.cyan)}`);
   if (analysis.approveUrl) console.log(`✅ Approve URL: ${paint(analysis.approveUrl, color.green)}`);
@@ -111,20 +135,17 @@ async function resolveEscalation(analysis: any) {
     ),
   );
 
-  let resolved = false;
-  while (!resolved) {
+  try {
+    // Blocks until the owner approves/blocks or TTL expires
     const status = await pollActionStatus(actionId);
-    if (status.final_decision !== "ESCALATED") {
-      console.log(
-        `${paint("[DASHBOARD]", color.cyan)} Decision received -> ${paint(
-          status.final_decision,
-          status.final_decision === "ALLOW" ? color.green : color.red,
-        )}`,
-      );
-      resolved = true;
-    } else {
-      await sleep(2000);
-    }
+    console.log(
+      `${paint("[DASHBOARD]", color.cyan)} Decision received -> ${paint(
+        status.final_decision,
+        status.final_decision === "ALLOW" ? color.green : color.red,
+      )}`,
+    );
+  } catch (err: any) {
+    console.log(paint(`[ERROR] ${err.message}`, color.red));
   }
 }
 
@@ -186,7 +207,7 @@ async function handleAgentPlan(plan: AgentPlan) {
   for (const lineText of wrapText(plan.intent, 68)) {
     console.log(`  ${paint(lineText, color.yellow)}`);
   }
-  await protectIntent(plan.intent);
+  await protectIntent(plan.intent, (plan as any).actionParams);
 }
 
 async function runSequentialDemo() {
